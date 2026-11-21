@@ -1,0 +1,21 @@
+[toolchain]
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+claw = "2gjcfh2Yp4iuD3TDPxtpRPY16L85nL9rQhoQM5YDYSLo"
+
+[programs.devnet]
+claw = "2gjcfh2Yp4iuD3TDPxtpRPY16L85nL9rQhoQM5YDYSLo"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test -p claw --lib"
+
+[hooks]

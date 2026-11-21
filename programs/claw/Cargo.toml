@@ -1,0 +1,36 @@
+[package]
+name = "claw"
+version = "0.1.0"
+description = "CLAW: onchain claw machine on MagicBlock Ephemeral Rollups + VRF"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "claw"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = { version = "=1.0.2", features = ["init-if-needed"] }
+ephemeral-rollups-sdk = { version = "0.18", features = ["anchor", "vrf"] }
+solana-sha256-hasher = "3.1"
+
+# off chain (tests, IDL build) sha256 needs the pure-Rust backend; on chain it is a syscall
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+solana-sha256-hasher = { version = "3.1", features = ["sha2"] }
+
+[dev-dependencies]
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
