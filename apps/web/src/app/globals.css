@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+/* UI type: Geist, self-hosted (OFL, see /fonts/GEIST-OFL.txt). Bricolage stays for the art painted onto the cabinet. */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-latin-wght.woff2") format("woff2-variations");
+}
+/* Accent serif for single words in headlines (OFL, see /fonts/INSTRUMENT-SERIF-OFL.txt). */
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/instrument-serif-italic.woff2") format("woff2");
+}
+/*
+ * Optional display face. Download Clash Display from fontshare.com (free for commercial use),
+ * put ClashDisplay-Variable.woff2 in public/fonts, and headlines switch to it; until then they use Geist.
+ */
+@font-face {
+  font-family: "Clash Display";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 700;
+  src: url("/fonts/ClashDisplay-Variable.woff2") format("woff2-variations");
+}
+
+@theme {
+  --font-display: "Clash Display", "Geist", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, Menlo, monospace;
+
+  --color-void: #0c070f;
+  --color-plum: #1b0f1e;
+  --color-hot-pink: #e8478f;
+  --color-hot-pink-deep: #c92f74;
+  --color-blush: #f7bfd3;
+  --color-brass: #e2b36a;
+  --color-paper: #fff5ee;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html,
+body {
+  background: var(--color-void);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-paper);
+  outline-offset: 3px;
+}
+
+/* Frosted panel used by every overlay: one surface, one border, one shadow. */
+@utility panel {
+  background:
+    linear-gradient(180deg, rgb(255 245 238 / 0.07), rgb(255 245 238 / 0.015) 60%),
+    color-mix(in oklab, var(--color-plum) 58%, transparent);
+  border: 1px solid rgb(255 245 238 / 0.1);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgb(255 245 238 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 18px 50px -18px rgb(0 0 0 / 0.7);
+}
+
+/* Small uppercase label used for metadata: network, steps, feature keys. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Keyboard hint chip. */
+@utility kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.45rem;
+  border-radius: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: rgb(255 245 238 / 0.75);
+  background: rgb(255 245 238 / 0.06);
+  border: 1px solid rgb(255 245 238 / 0.12);
+  box-shadow: inset 0 -1px 0 rgb(255 245 238 / 0.08);
+}
+
+/* Film grain over flat screens, so dark gradients never band. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  animation: grain 0.9s steps(4) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -3%); }
+  75% { transform: translate(-2%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* A highlight sweeping across a button on hover. */
+.shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.shimmer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  transform: skewX(-18deg);
+}
+:where(button, a):hover > .shimmer::before {
+  animation: shimmer 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes shimmer {
+  to { left: 130%; }
+}
+
+/* Live status dot with an expanding ring. */
+.live-dot {
+  position: relative;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: #5ef2b0;
+  box-shadow: 0 0 8px #5ef2b0;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid #5ef2b0;
+  animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ping {
+  75%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after, .live-dot::after, .fx-btn::after, .fx-flow::before, .mark-dot, .mark-prize, .meniscus::before { animation: none; }
+}
+
+/*
+ * Effect buttons. A light runs round the rim, a soft glow drifts inside
+ * behind fluted glass (the boot shader in miniature), and a spotlight
+ * follows the pointer.
+ */
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.fx-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.fx-flow {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.fx-flow::before {
+  content: "";
+  position: absolute;
+  inset: -60%;
+  background:
+    radial-gradient(28% 55% at 32% 50%, var(--fx-a, rgb(255 122 178 / 0.7)), transparent 70%),
+    radial-gradient(24% 45% at 70% 55%, var(--fx-b, rgb(255 214 232 / 0.45)), transparent 70%);
+  animation: fx-flow 6s ease-in-out infinite alternate;
+}
+@keyframes fx-flow {
+  0% { transform: translate(-14%, -6%) rotate(0deg); }
+  50% { transform: translate(12%, 6%) rotate(18deg); }
+  100% { transform: translate(-4%, 10%) rotate(-14deg); }
+}
+.fx-flutes {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.2) 0 1px,
+    rgb(0 0 0 / 0.07) 1px 2px,
+    transparent 2px 7px
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.fx-spot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(110px 70px at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / 0.32), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.35s;
+  pointer-events: none;
+}
+.fx-btn:hover > .fx-spot { opacity: 1; }
+.fx-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--spin), transparent 0deg 220deg, rgb(255 255 255 / 0.95) 300deg, transparent 350deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: fx-spin 3.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes fx-spin {
+  to { --spin: 360deg; }
+}
+
+/* Low-tier GPUs: a live backdrop blur over WebGL is re-blurred every frame. Go opaque instead. */
+[data-tier="low"] .panel {
+  backdrop-filter: none;
+  background: color-mix(in oklab, var(--color-plum) 92%, transparent);
+}
