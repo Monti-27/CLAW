@@ -11,7 +11,8 @@ import {
   ShaderMaterial,
 } from "three";
 import { type GamePhase, useGameStore } from "@/stores/game.store";
-import { BODY, CABINET, CASE_TOP, MARQUEE, TOWER } from "../config/dimensions";
+import { BODY, CABINET, CASE_TOP, MARQUEE, MARQUEE_BAND, TOWER } from "../config/dimensions";
+import { getMaterials } from "../materials";
 
 type Vec3 = [number, number, number];
 
@@ -19,21 +20,22 @@ type Vec3 = [number, number, number];
 function bulbPositions(): Vec3[] {
   const out: Vec3[] = [];
   const mw = CABINET.width + MARQUEE.overhang * 2 - 0.06;
-  const mz = (CABINET.depth + MARQUEE.overhang) / 2 + MARQUEE.overhang / 2 + 0.02;
+  const mz = (CABINET.depth + MARQUEE.overhang) / 2 + MARQUEE.overhang / 2 + 0.008;
   const row = (y: number, z: number, width: number, step: number) => {
     const n = Math.round(width / step);
     for (let i = 0; i <= n; i++) out.push([-width / 2 + (i * width) / n, y, z]);
   };
-  row(MARQUEE.bottom + MARQUEE.height - 0.006, mz, mw, 0.066);
-  row(MARQUEE.bottom + 0.006, mz, mw, 0.066);
+  // on the lacquer bands above and below the lit face
+  row(MARQUEE.bottom + MARQUEE.height - MARQUEE_BAND / 2, mz, mw, 0.066);
+  row(MARQUEE.bottom + MARQUEE_BAND / 2, mz, mw, 0.066);
   row(CASE_TOP - 0.012, CABINET.depth / 2 + 0.012, CABINET.width - 0.06, 0.08);
 
-  const towerZ = CABINET.depth / 2 - 0.04 + TOWER.protrude + 0.012;
+  const towerZ = CABINET.depth / 2 - 0.04 + TOWER.protrude + 0.014;
   for (const side of [-1, 1]) {
     const cx = side * (BODY.width / 2 + TOWER.width / 2);
     for (const e of [-1, 1]) {
       const x = cx + e * (TOWER.width / 2 - 0.006);
-      for (let y = 0.16; y < TOWER.height - 0.04; y += 0.075) out.push([x, y, towerZ]);
+      for (let y = 0.14; y < TOWER.height - 0.03; y += 0.068) out.push([x, y, towerZ]);
     }
   }
   return out;
@@ -125,7 +127,56 @@ function haloMaterial() {
   });
 }
 
+/**
+ * The glass globe. Lit from inside, so it is brightest face-on (where you look
+ * through to the filament) and falls off toward the rim, which keeps a thin
+ * coloured edge; a fixed studio highlight sells the glass. Unlit, it reads as
+ * clear tinted glass rather than a flat dot.
+ */
+function globeMaterial() {
+  return new ShaderMaterial({
+    toneMapped: false,
+    vertexShader: /* glsl */ `
+      varying vec3 vN;
+      varying vec3 vV;
+      varying vec3 vColor;
+      void main() {
+        #ifdef USE_INSTANCING_COLOR
+          vColor = instanceColor;
+        #else
+          vColor = vec3(1.0);
+        #endif
+        vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      varying vec3 vN;
+      varying vec3 vV;
+      varying vec3 vColor;
+      void main() {
+        vec3 n = normalize(vN);
+        float ndv = clamp(dot(n, vV), 0.0, 1.0);
+        float lit = clamp(max(vColor.r, max(vColor.g, vColor.b)), 0.0, 6.0);
+        // filament glow through the glass, hotter and whiter at the centre
+        float core = pow(ndv, 2.6);
+        vec3 col = vColor * (0.32 + 0.9 * core) + vec3(core * core) * 0.35 * lit;
+        // unlit glass: a cool tint so it never goes black
+        col += vec3(0.16, 0.13, 0.15) * (1.0 - min(1.0, lit)) * (0.4 + 0.6 * ndv);
+        // studio highlight and a soft rim
+        vec3 l = normalize(vec3(-0.45, 0.75, 0.55));
+        float spec = pow(max(dot(n, normalize(l + vV)), 0.0), 70.0);
+        col += vec3(1.0) * spec * 1.4 + vColor * pow(1.0 - ndv, 3.0) * 0.25;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+}
+
 export function Bulbs() {
+  const m_ = getMaterials();
+  const socket = useRef<InstancedMesh>(null);
+  const globeMat = useMemo(globeMaterial, []);
   const halo = useRef<InstancedMesh>(null);
   const haloGeo = useMemo(() => new PlaneGeometry(1, 1), []);
   const haloMat = useMemo(haloMaterial, []);
@@ -143,9 +194,16 @@ export function Bulbs() {
       m.setColorAt(i, WARM);
       halo.current?.setMatrixAt(i, o.matrix);
       halo.current?.setColorAt(i, WARM);
+      // the socket sits behind the globe, facing out
+      o.position.z -= 0.0062;
+      o.rotation.set(Math.PI / 2, 0, 0);
+      o.updateMatrix();
+      socket.current?.setMatrixAt(i, o.matrix);
+      o.rotation.set(0, 0, 0);
     });
     m.instanceMatrix.needsUpdate = true;
     if (halo.current) halo.current.instanceMatrix.needsUpdate = true;
+    if (socket.current) socket.current.instanceMatrix.needsUpdate = true;
   }, [positions]);
 
   useFrame((state) => {
@@ -166,10 +224,13 @@ export function Bulbs() {
 
   return (
     <>
-      {/* the glass bulb: a hot core that the bloom pass picks up */}
-      <instancedMesh ref={mesh} args={[undefined, undefined, positions.length]}>
-        <sphereGeometry args={[0.0082, 14, 10]} />
-        <meshBasicMaterial toneMapped={false} />
+      {/* the glass bulb: lit from inside, its hot core is what bloom picks up */}
+      <instancedMesh ref={mesh} args={[undefined, globeMat, positions.length]}>
+        <sphereGeometry args={[0.0102, 18, 12]} />
+      </instancedMesh>
+      {/* chrome cup and collar each bulb screws into */}
+      <instancedMesh ref={socket} args={[undefined, m_.chrome, positions.length]}>
+        <cylinderGeometry args={[0.0118, 0.0098, 0.007, 18, 1]} />
       </instancedMesh>
       <instancedMesh
         ref={halo}

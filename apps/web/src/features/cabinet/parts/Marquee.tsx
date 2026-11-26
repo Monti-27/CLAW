@@ -1,15 +1,35 @@
 "use client";
 
 import { RoundedBox } from "@react-three/drei";
-import { CABINET, CASE_TOP, MARQUEE } from "../config/dimensions";
+import { useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+import type { MeshBasicMaterial } from "three";
+import { useGameStore } from "@/stores/game.store";
+import { CABINET, CASE_TOP, MARQUEE, MARQUEE_BAND } from "../config/dimensions";
 import { getMaterials } from "../materials";
 import { drawMarquee } from "../textures/art";
 import { useArtTexture } from "../textures/useArtTexture";
 
-/** Backlit header box with the wordmark, trimmed in deep pink. */
+const FACE_H = MARQUEE.height - MARQUEE_BAND * 2;
+const BEZEL = 0.012;
+
+/** Header box: a neon sign in a chrome bezel, lacquer bands carrying the chaser bulbs. */
 export function Marquee() {
   const m = getMaterials();
-  const art = useArtTexture(2048, 320, drawMarquee);
+  const w0 = CABINET.width + MARQUEE.overhang * 2;
+  const art = useArtTexture(4096, Math.round((4096 * FACE_H) / (w0 - 0.07)), drawMarquee);
+  const face = useRef<MeshBasicMaterial>(null);
+  const level = useRef(1);
+
+  // the sign breathes slightly, flickers up on a win and dims on a miss
+  useFrame((state, delta) => {
+    const phase = useGameStore.getState().phase;
+    const goal = phase === "celebrate" ? 1.9 : phase === "lost" ? 0.75 : phase === "prize" ? 1.4 : 1.15;
+    level.current += (goal - level.current) * Math.min(1, delta * 3);
+    const t = state.clock.elapsedTime;
+    const hum = 1 + Math.sin(t * 2.1) * 0.025 + (phase === "celebrate" ? Math.sin(t * 22) * 0.12 : 0);
+    face.current?.color.setScalar(level.current * hum);
+  });
   const w = CABINET.width + MARQUEE.overhang * 2;
   const d = CABINET.depth + MARQUEE.overhang;
   const cy = MARQUEE.bottom + MARQUEE.height / 2;
@@ -32,24 +52,26 @@ export function Marquee() {
         position={[0, cy, MARQUEE.overhang / 2]}
       />
 
-      {/* lit face */}
-      <mesh position={[0, cy, frontZ + 0.001]}>
-        <planeGeometry args={[w - 0.05, MARQUEE.height - 0.035]} />
-        <meshStandardMaterial
-          map={art}
-          emissiveMap={art}
-          emissive="#ffffff"
-          emissiveIntensity={0.62}
-          color="#9a9a9a"
-          roughness={0.4}
-          toneMapped={false}
-        />
+      {/* the neon sign, set into a chrome bezel */}
+      <mesh position={[0, cy, frontZ + 0.002]}>
+        <planeGeometry args={[w - 0.07, FACE_H]} />
+        <meshBasicMaterial ref={face} map={art} toneMapped={false} />
       </mesh>
+      {[1, -1].map((s) => (
+        <group key={s}>
+          <mesh material={m.chrome} position={[0, cy + s * (FACE_H / 2 + BEZEL / 2), frontZ + 0.004]}>
+            <boxGeometry args={[w - 0.07 + BEZEL * 2, BEZEL, 0.01]} />
+          </mesh>
+          <mesh material={m.chrome} position={[s * ((w - 0.07) / 2 + BEZEL / 2), cy, frontZ + 0.004]}>
+            <boxGeometry args={[BEZEL, FACE_H + BEZEL * 2, 0.01]} />
+          </mesh>
+        </group>
+      ))}
 
-      {/* deep pink trim lips */}
-      {[MARQUEE.bottom + 0.008, MARQUEE.bottom + MARQUEE.height - 0.008].map((y) => (
-        <mesh key={y} material={m.hotPinkDeep} position={[0, y, frontZ + 0.006]}>
-          <boxGeometry args={[w + 0.004, 0.016, 0.014]} />
+      {/* deep pink lips at the top and bottom edges */}
+      {[MARQUEE.bottom + 0.004, MARQUEE.bottom + MARQUEE.height - 0.004].map((y) => (
+        <mesh key={y} material={m.hotPinkDeep} position={[0, y, frontZ - 0.002]}>
+          <boxGeometry args={[w + 0.004, 0.008, 0.012]} />
         </mesh>
       ))}
 
