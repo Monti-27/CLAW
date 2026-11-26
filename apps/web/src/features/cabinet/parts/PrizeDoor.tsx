@@ -11,9 +11,11 @@ import { COIN } from "../prizes/layout";
 import { describePrize, PrizeMesh } from "../prizes/PrizeMesh";
 import { drawPrizeOut } from "../textures/art";
 import { useArtTexture } from "../textures/useArtTexture";
+import { useBezelGeometry, usePlateGeometry } from "./Trim";
 
 const { width: W, height: H, depth: D } = PRIZE_DOOR;
 const BAR = 0.022;
+const SIGN = { w: 0.2, h: 0.038 };
 /** Seconds into the reveal when each beat starts. */
 const BEAT = { fall: 0.15, flap: 0.75, glide: 1.25, glideEnd: 2.2 };
 const smooth = (k: number) => k * k * (3 - 2 * k);
@@ -26,7 +28,12 @@ const span = (t: number, a: number, b: number) => Math.min(1, Math.max(0, (t - a
  */
 export function PrizeDoor() {
   const m = getMaterials();
-  const legend = useArtTexture(512, 72, drawPrizeOut);
+  const legend = useArtTexture(1280, 240, drawPrizeOut);
+  const bezel = useBezelGeometry(W, H, BAR, 0.018, 0.016);
+  const halo = useBezelGeometry(W + BAR * 2 - 0.004, H + BAR * 2 - 0.004, 0.007, 0.002, 0.016 + BAR);
+  const signPlate = usePlateGeometry(SIGN.w, SIGN.h, 0.006, 0.008);
+  const haloMat = useRef<MeshBasicMaterial>(null);
+  const signMat = useRef<MeshBasicMaterial>(null);
   const won = useGameStore((s) => s.won);
   const flap = useRef<Group>(null);
   const prize = useRef<Group>(null);
@@ -35,6 +42,7 @@ export function PrizeDoor() {
   const clock = useRef(0);
   const open = useRef(0);
   const lamp = useRef(0);
+  const halo_ = useRef(0);
 
   const info = won ? describePrize(won) : null;
   // a coin stands on its edge in the tray, so its height there is its diameter
@@ -50,6 +58,13 @@ export function PrizeDoor() {
 
     lamp.current += ((revealing ? 1 : 0) - lamp.current) * Math.min(1, dt * 5);
     if (strip.current) strip.current.color.setScalar(0.06 + lamp.current * 4);
+    // halo and sign breathe at idle, and come right up for the reveal
+    const phase = useGameStore.getState().phase;
+    const party = phase === "celebrate" ? 1 : 0;
+    halo_.current += (party + lamp.current - halo_.current) * Math.min(1, dt * 4);
+    const pulse = 0.5 + 0.5 * Math.sin(_.clock.elapsedTime * 2.4);
+    haloMat.current?.color.setRGB(1, 0.35, 0.63).multiplyScalar(0.55 + pulse * 0.25 + halo_.current * 2.2);
+    signMat.current?.color.setScalar(1 + halo_.current * 0.8);
 
     const flapGoal = revealing && t > BEAT.flap ? 1 : 0;
     open.current += (flapGoal - open.current) * Math.min(1, dt * 6);
@@ -113,21 +128,21 @@ export function PrizeDoor() {
         </mesh>
       </group>
 
-      {/* chrome surround */}
-      {[-1, 1].map((s) => (
-        <group key={s}>
-          <mesh material={m.aluminum} position={[s * (W / 2 + BAR / 2), 0, 0.006]} castShadow>
-            <boxGeometry args={[BAR, H + BAR * 2, 0.014]} />
-          </mesh>
-          <mesh material={m.aluminum} position={[0, s * (H / 2 + BAR / 2), 0.006]} castShadow>
-            <boxGeometry args={[W, BAR, 0.014]} />
-          </mesh>
-        </group>
-      ))}
-      <mesh position={[0, H / 2 + BAR + 0.026, 0.0015]}>
-        <planeGeometry args={[0.2, 0.028]} />
-        <meshPhysicalMaterial map={legend} roughness={0.3} clearcoat={0.8} />
+      {/* LED halo behind the bezel: idles soft pink, flares on a win */}
+      <mesh geometry={halo} position={[0, 0, 0.0005]}>
+        <meshBasicMaterial ref={haloMat} color="#ff5aa0" toneMapped={false} />
       </mesh>
+      {/* chrome bezel with rounded corners */}
+      <mesh geometry={bezel} material={m.chrome} castShadow />
+
+      {/* the lit PRIZE sign above the door */}
+      <group position={[0, H / 2 + BAR + 0.034, 0.002]}>
+        <mesh geometry={signPlate} material={m.blackGloss} />
+        <mesh position={[0, 0, 0.0062]}>
+          <planeGeometry args={[SIGN.w - 0.01, SIGN.h - 0.008]} />
+          <meshBasicMaterial ref={signMat} map={legend} toneMapped={false} />
+        </mesh>
+      </group>
 
       {/* smoked flap, hinged along its top edge */}
       <group ref={flap} position={[0, H / 2 - 0.002, -0.004]}>
