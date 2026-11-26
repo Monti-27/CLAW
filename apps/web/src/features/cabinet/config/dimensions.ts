@@ -53,6 +53,9 @@ export const MARQUEE = {
   overhang: 0.025,
 } as const;
 
+/** Lacquer band above and below the marquee's lit face, where the chaser bulbs sit. */
+export const MARQUEE_BAND = 0.036;
+
 /** Inside of the glass, where prizes live and claws travel. */
 export const PLAYFIELD = {
   floor: CASE.bottom + 0.012,

@@ -117,9 +117,9 @@ function createMaterials() {
       clearcoatRoughness: 0.3,
     }),
     smoked: new MeshPhysicalMaterial({
-      color: "#ff9cc4",
+      color: "#2a1424",
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.62,
       roughness: 0.06,
       clearcoat: 1,
       depthWrite: false,
