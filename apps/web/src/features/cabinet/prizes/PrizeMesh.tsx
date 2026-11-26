@@ -20,8 +20,16 @@ import { BOX_SIZE, CAPSULE_R, COIN, GEM_R, type PlacedPrize } from "./layout";
 
 function createPrizeMaterials() {
   const repaints: (() => void)[] = [];
-  const canvas = (w: number, h: number, draw: Parameters<typeof paintTexture>[2], data = false) => {
-    const t = paintTexture(w, h, draw);
+  // prize art is authored at 1x and painted at 2x, so it stays sharp right up at the glass
+  const SCALE = 2;
+  const canvas = (w: number, h: number, art: Parameters<typeof paintTexture>[2], data = false) => {
+    const draw: typeof art = (ctx, cw, ch) => {
+      ctx.save();
+      ctx.scale(SCALE, SCALE);
+      art(ctx, cw / SCALE, ch / SCALE);
+      ctx.restore();
+    };
+    const t = paintTexture(w * SCALE, h * SCALE, draw);
     if (data) t.colorSpace = NoColorSpace;
     repaints.push(() => repaint(t, draw));
     return t;

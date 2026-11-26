@@ -6,8 +6,14 @@
 export type Tier = "low" | "mid" | "high";
 
 export type Profile = {
-  /** device pixel ratio range; PerformanceMonitor moves inside it */
+  /**
+   * device pixel ratio range; PerformanceMonitor moves inside it. The top is a
+   * ceiling: the renderer goes as high as the screen (and any browser or pinch
+   * zoom) needs, up to it and to `pixels`.
+   */
   dpr: [number, number];
+  /** most pixels the canvas may draw per frame, so zooming in can't melt the GPU */
+  pixels: number;
   shadows: boolean;
   shadowMap: number;
   /** update the shadow map every Nth frame */
@@ -22,7 +28,8 @@ export type Profile = {
 
 export const PROFILES: Record<Tier, Profile> = {
   low: {
-    dpr: [0.7, 1],
+    dpr: [0.7, 1.25],
+    pixels: 2.6e6,
     shadows: false,
     shadowMap: 512,
     shadowEvery: 1,
@@ -34,7 +41,8 @@ export const PROFILES: Record<Tier, Profile> = {
     confetti: 90,
   },
   mid: {
-    dpr: [1, 1.75],
+    dpr: [1, 3],
+    pixels: 9e6,
     shadows: true,
     shadowMap: 1024,
     shadowEvery: 2,
@@ -46,7 +54,8 @@ export const PROFILES: Record<Tier, Profile> = {
     confetti: 160,
   },
   high: {
-    dpr: [1, 2],
+    dpr: [1, 4],
+    pixels: 14e6,
     shadows: true,
     shadowMap: 1536,
     shadowEvery: 1,

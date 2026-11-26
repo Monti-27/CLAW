@@ -129,7 +129,7 @@ const DECK_LAYOUT: DeckLayout = {
 };
 const DECK_COLOR = drawDeck(DECK_LAYOUT, "color");
 const DECK_BUMP = drawDeck(DECK_LAYOUT, "bump");
-const ART_W = 3072;
+const ART_W = 4096;
 const ART_H = Math.round((ART_W * PRINT_H) / PRINT_W);
 
 /** Slanted two-player button deck with speaker band above it. */

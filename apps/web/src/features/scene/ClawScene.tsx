@@ -16,13 +16,61 @@ import { Stage } from "./Stage";
 import { Turntable } from "./Turntable";
 import { World } from "./World";
 
+/**
+ * The pixel ratio that keeps the scene crisp on this screen right now: the
+ * display's own density times any pinch zoom (the browser magnifies the canvas
+ * bitmap when you pinch, so it has to be drawn bigger to stay sharp). Browser
+ * zoom already shows up in devicePixelRatio. Capped by the tier and by a
+ * pixel budget for the canvas size.
+ */
+function useSharpDpr(ceiling: number, pixels: number) {
+  const measure = () => {
+    const pinch = window.visualViewport?.scale ?? 1;
+    const want = window.devicePixelRatio * Math.max(1, pinch);
+    const area = Math.max(1, window.innerWidth * window.innerHeight);
+    return Math.min(ceiling, want, Math.sqrt(pixels / area));
+  };
+  const [value, setValue] = useState(measure);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      cancelAnimationFrame(raf);
+      // settle on the zoom the gesture ends at, not every step of it
+      raf = requestAnimationFrame(() => setValue(Math.round(measure() * 20) / 20));
+    };
+    const vv = window.visualViewport;
+    window.addEventListener("resize", update);
+    vv?.addEventListener("resize", update);
+    // browser zoom changes devicePixelRatio without always firing resize
+    let mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const onDpr = () => {
+      update();
+      mq.removeEventListener("change", onDpr);
+      mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      mq.addEventListener("change", onDpr);
+    };
+    mq.addEventListener("change", onDpr);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", update);
+      vv?.removeEventListener("resize", update);
+      mq.removeEventListener("change", onDpr);
+    };
+    // measure reads only globals
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  }, [ceiling, pixels]);
+  return value;
+}
+
 export function ClawScene() {
   const profile = useQualityStore((s) => s.profile);
   // compiled and baked, but only drawn once someone is walking in (no second GPU load behind the boot screen)
   const ready = useQualityStore((s) => s.step === "ready" && s.entering);
-  const [min, max] = profile.dpr;
-  // start near the top of the tier's range; PerformanceMonitor walks it up or down
-  const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio, min + (max - min) * 0.8));
+  const [min] = profile.dpr;
+  const sharp = useSharpDpr(profile.dpr[1], profile.pixels);
+  // PerformanceMonitor's say, 0..1; start at full sharpness on capable tiers
+  const [factor, setFactor] = useState(() => (useQualityStore.getState().tier === "low" ? 0.8 : 1));
+  const dpr = Math.round(Math.max(min, Math.min(sharp, min + (sharp - min) * factor)) * 100) / 100;
 
   useEffect(() => useQualityStore.getState().setStep("building"), []);
 
@@ -43,13 +91,11 @@ export function ClawScene() {
       <PerformanceMonitor
         factor={0.8}
         flipflops={4}
-        onChange={({ factor }) =>
-          setDpr(Math.min(window.devicePixelRatio, Math.round((min + (max - min) * factor) * 20) / 20))
-        }
+        onChange={({ factor: f }) => setFactor(Math.round(f * 20) / 20)}
         onFallback={() => {
           // still struggling at the bottom of the range: drop post and go to minimum resolution
           useQualityStore.getState().dropPost();
-          setDpr(min);
+          setFactor(0);
         }}
       />
       <QualityRig />
