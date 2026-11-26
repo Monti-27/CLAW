@@ -6,8 +6,11 @@ Every real claw machine is rigged. The operator sets how weak the claw is and no
 
 Built for Solana Blitz v10, themed around Entertainment Finance, which requires a MagicBlock Ephemeral Rollup or VRF integration. CLAW uses both.
 
+**Play it on devnet:** https://claw-blitz.vercel.app
+
 | | |
 |---|---|
+| Live app | [claw-blitz.vercel.app](https://claw-blitz.vercel.app) |
 | Program ID | [`2gjcfh2Yp4iuD3TDPxtpRPY16L85nL9rQhoQM5YDYSLo`](https://explorer.solana.com/address/2gjcfh2Yp4iuD3TDPxtpRPY16L85nL9rQhoQM5YDYSLo?cluster=devnet) |
 | Machine account | [`9TZ1GFSe...JBru`](https://explorer.solana.com/address/9TZ1GFSe2nxNM8i2Dpcd6nmiJkAAcQza2DWAJi55JBru?cluster=devnet) |
 | Prize pool | [`HCCLJdbx...7AVo`](https://explorer.solana.com/address/HCCLJdbxQof5SXkWgeikS39jDSAu8zda7howeWQd7AVo?cluster=devnet) |
