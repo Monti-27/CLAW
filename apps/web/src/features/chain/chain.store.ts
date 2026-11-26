@@ -55,6 +55,8 @@ type ChainStore = {
   links: ChainLink[];
   /** claw moves sent to the rollup this round */
   movesSent: number;
+  /** the paid grabs of this round are used up; the game goes back to the title */
+  outOfGrabs: boolean;
 
   set: (next: Partial<Omit<ChainStore, "set" | "link">>) => void;
   link: (label: string, url: string) => void;
@@ -68,6 +70,7 @@ export const useChainStore = create<ChainStore>()((set) => ({
   error: null,
   links: [],
   movesSent: 0,
+  outOfGrabs: false,
 
   set: (next) => set(next),
   link: (label, url) =>

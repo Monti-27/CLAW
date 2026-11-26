@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use ephemeral_rollups_sdk::anchor::vrf_callback;
+use ephemeral_rollups_sdk::{anchor::vrf_callback, vrf::consts::scoped_vrf_identity_const};
 
 use crate::{constants::*, error::ClawError, odds, state::*};
 
@@ -14,11 +14,18 @@ pub struct GripResolved {
     pub payout: u64,
 }
 
-/// `#[vrf_callback]` adds the VRF identity as a required signer, so only
-/// MagicBlock's VRF program, answering a request this program made, gets in.
+/// The VRF identity PDA scoped to this program, worked out at compile time.
+/// It has to be a `const` item: left inline in the account constraint, the
+/// derivation runs onchain on every callback and burns the whole compute budget.
+const VRF_IDENTITY: Pubkey = Pubkey::new_from_array(scoped_vrf_identity_const(&crate::ID).0);
+
+/// Only MagicBlock's VRF program, answering a request this program made, can
+/// sign as `vrf_program_identity`, so nobody else gets in.
 #[vrf_callback]
 #[derive(Accounts)]
 pub struct GripCallback<'info> {
+    #[account(address = VRF_IDENTITY)]
+    pub vrf_program_identity: Signer<'info>,
     #[account(mut, seeds = [ROUND_SEED, round.player.as_ref()], bump = round.bump)]
     pub round: Box<Account<'info, Round>>,
 }

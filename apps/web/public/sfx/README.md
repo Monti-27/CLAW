@@ -8,7 +8,7 @@ in `manifest.json`:
 { "win": "win.mp3", "coin": "coin.ogg" }
 ```
 
-Names you can override: press, release, coin, start, clamp, open, thud, chute,
+Names you can override: press, grab, release, coin, start, clamp, open, thud, chute,
 win, lose, door, ding, tick. The two motor loops are always synthesized because
 they follow the claw's movement.
 

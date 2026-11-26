@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { describePrize } from "@/features/cabinet/prizes/PrizeMesh";
-import { sol } from "@/features/chain/chain.store";
+import { sol, useChainStore } from "@/features/chain/chain.store";
 import { useGameStore } from "@/stores/game.store";
 import { ArcadeButton } from "./ArcadeButton";
 import { LABEL } from "./hud/glass";
@@ -16,6 +16,10 @@ export function PrizeCard() {
   const roll = useGameStore((s) => s.roll);
   const playAgain = useGameStore((s) => s.playAgain);
   const exit = useGameStore((s) => s.exit);
+  // grabs still paid for in the round that is live onchain (null in the demo)
+  const left = useChainStore((s) =>
+    s.outOfGrabs ? 0 : s.status === "live" ? (s.round?.credits ?? 0) : null,
+  );
   if (!won) return null;
   const info = describePrize(won);
 
@@ -42,7 +46,9 @@ export function PrizeCard() {
           <dd className="text-right text-paper">
             {roll?.proof
               ? `${sol(roll.proof.payoutLamports)} SOL, yours when you leave`
-              : "Demo round, nothing at stake"}
+              : roll?.offline
+                ? "The rollup did not answer, so this grab was not paid"
+                : "Demo round, nothing at stake"}
           </dd>
           {roll?.proof && (
             <>
@@ -61,12 +67,20 @@ export function PrizeCard() {
           )}
         </dl>
         <div className="mt-7 flex gap-3">
-          <ArcadeButton className="flex-1" onClick={playAgain}>
-            Play again
-          </ArcadeButton>
-          <ArcadeButton tone="quiet" onClick={exit}>
-            Leave
-          </ArcadeButton>
+          {left === 0 ? (
+            <ArcadeButton className="flex-1" onClick={exit}>
+              Finish and collect
+            </ArcadeButton>
+          ) : (
+            <>
+              <ArcadeButton className="flex-1" onClick={playAgain}>
+                {left === null ? "Play again" : `Next grab (${left} left)`}
+              </ArcadeButton>
+              <ArcadeButton tone="quiet" onClick={exit}>
+                {left === null ? "Leave" : "Cash out"}
+              </ArcadeButton>
+            </>
+          )}
         </div>
       </div>
     </motion.section>

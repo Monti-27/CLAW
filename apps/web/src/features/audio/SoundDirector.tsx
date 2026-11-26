@@ -26,7 +26,7 @@ export function SoundDirector() {
 
       useControlsStore.subscribe((s, p) => {
         for (const id of BUTTONS) {
-          if (s.pressed[id] && !p.pressed[id]) play("press");
+          if (s.pressed[id] && !p.pressed[id]) play(id === "grab" ? "grab" : "press");
           if (!s.pressed[id] && p.pressed[id]) play("release");
         }
       }),
@@ -80,6 +80,9 @@ export function SoundDirector() {
               break;
           }
         }
+        // reached the top while the roll is still out: the cable motor stops and it just hangs
+        if (claw.phase === "rising" && claw.drop <= 0.0005 && p.claws.p1.drop > 0.0005)
+          hoist("off");
         const steering =
           claw.phase === "idle" &&
           game.phase === "playing" &&

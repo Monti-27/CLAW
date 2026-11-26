@@ -174,11 +174,12 @@ export function Claw({ id }: { id: ClawId }) {
 
     const [px, py, pz] = carry.position;
     const sl = slip.current;
+    // a miss slips on the way up, or mid-carry if the roll landed after the lift
     const slipping =
       game.roll &&
       !game.roll.won &&
-      c.phase === "rising" &&
-      c.t / DURATION.rising >= game.roll.slipAt;
+      ((c.phase === "rising" && c.t / DURATION.rising >= game.roll.slipAt) ||
+        c.phase === "returning");
     if (slipping && sl.t < 0) {
       sl.t = 0;
       sl.from.copy(held);
@@ -187,20 +188,28 @@ export function Claw({ id }: { id: ClawId }) {
     if (c.phase !== "releasing") fall.t = -1;
 
     if (sl.t >= 0 && !sl.done) {
-      // it slips out, falls back where it came from and settles
+      // it slips out and drops straight down from wherever the fingers were,
+      // bounces once, then rolls back to its place in the pile
       sl.t += dt;
-      const k = Math.min(1, sl.t / 0.28);
+      const away = Math.hypot(px - sl.from.x, pz - sl.from.z);
+      const rollFor = Math.min(0.75, 0.25 + away * 3);
+      let x = sl.from.x;
+      let z = sl.from.z;
       let y = sl.from.y - 0.5 * GRAVITY * sl.t ** 2;
       if (y <= py && sl.landed < 0) sl.landed = sl.t;
       if (sl.landed >= 0) {
-        const b = (sl.t - sl.landed) / 0.22;
-        y = py + Math.sin(Math.min(1, b) * Math.PI) * 0.014;
-        if (b >= 1) {
+        const since = sl.t - sl.landed;
+        const u = Math.min(1, since / rollFor);
+        const e = u * u * (3 - 2 * u);
+        x = sl.from.x + (px - sl.from.x) * e;
+        z = sl.from.z + (pz - sl.from.z) * e;
+        y = py + Math.sin(Math.min(1, since / 0.22) * Math.PI) * 0.014;
+        if (u >= 1 && since >= 0.22) {
           sl.done = true;
           game.dropBack();
         }
       }
-      g.position.set(sl.from.x + (px - sl.from.x) * k, y, sl.from.z + (pz - sl.from.z) * k);
+      g.position.set(x, y, z);
       g.quaternion.identity();
     } else if (c.phase === "closing") {
       // the fingers close around it, lifting it off the pile into their grip

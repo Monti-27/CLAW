@@ -9,6 +9,7 @@
 
 export const ONE_SHOTS = [
   "press",
+  "grab",
   "release",
   "coin",
   "start",
@@ -159,6 +160,19 @@ export function createSynth(ctx: BaseAudioContext, out: AudioNode) {
       burst({ at, dur: 0.012, gain: 0.5, filter: "bandpass", freq: 3200, q: 1.4 });
       tone({ freq: 190, to: 110, at: at + 0.004, dur: 0.05, gain: 0.3 });
     },
+    // the big grab button: a soft felt-mallet chime (two notes up a fifth, sine
+    // with a round attack, a whisper of octave on top) over a muted button thump.
+    // Pleasant on the hundredth press; no clicky top end at all.
+    grab: (at) => {
+      tone({ freq: 150, to: 95, at, dur: 0.07, gain: 0.16, attack: 0.006 });
+      const mallet = (t: number, f: number, g: number) => {
+        tone({ freq: f, at: t, dur: 0.9, gain: g, attack: 0.012 });
+        tone({ freq: f * 2, at: t, dur: 0.35, gain: g * 0.12, attack: 0.012 });
+        tone({ freq: f, at: t, dur: 1.4, gain: g * 0.45, attack: 0.02, dest: room });
+      };
+      mallet(at + 0.01, NOTE.C5, 0.13);
+      mallet(at + 0.1, NOTE.G5, 0.11);
+    },
     release: (at) => {
       burst({ at, dur: 0.01, gain: 0.22, filter: "bandpass", freq: 4200, q: 1.6 });
     },
@@ -176,9 +190,8 @@ export function createSynth(ctx: BaseAudioContext, out: AudioNode) {
     },
     // solenoid pulls the fingers shut: a dull clack with a short metal ring
     clamp: (at) => {
-      tone({ freq: 130, to: 70, at, dur: 0.09, gain: 0.55 });
-      burst({ at, dur: 0.035, gain: 0.5, filter: "lowpass", freq: 1800 });
-      ping(at + 0.005, 2300, 0.06, 0.28);
+      tone({ freq: 120, to: 68, at, dur: 0.1, gain: 0.42, attack: 0.003 });
+      burst({ at, dur: 0.03, gain: 0.28, filter: "lowpass", freq: 1100 });
     },
     open: (at) => {
       burst({ at, dur: 0.02, gain: 0.28, filter: "bandpass", freq: 2200, q: 1.2 });
@@ -256,28 +269,48 @@ export function createSynth(ctx: BaseAudioContext, out: AudioNode) {
    * A small DC gear motor: sawtooth core, a higher partial for gear whine,
    * chatter from a fast tremolo, brush hiss from filtered noise.
    */
-  function motor(base: number, level: number) {
+  type MotorVoice = {
+    /** waveform of the main hum */
+    wave: OscillatorType;
+    /** square-wave gear whine, relative to the hum */
+    whine: number;
+    /** lowpass on the hum */
+    cutoff: number;
+    /** brush hiss level */
+    hiss: number;
+    /** how hard the gear teeth chatter (0..1) */
+    chatter: number;
+  };
+  const GEAR: MotorVoice = {
+    wave: "sawtooth",
+    whine: 0.12,
+    cutoff: 1100,
+    hiss: 0.25,
+    chatter: 0.2,
+  };
+
+  function motor(base: number, level: number, voice: MotorVoice = GEAR) {
     const mix = ctx.createGain();
     mix.gain.value = 0;
     const body = ctx.createBiquadFilter();
     body.type = "lowpass";
-    body.frequency.value = 1100;
+    body.frequency.value = voice.cutoff;
 
     const core = ctx.createOscillator();
-    core.type = "sawtooth";
+    core.type = voice.wave;
     core.frequency.value = base;
     const whine = ctx.createOscillator();
     whine.type = "square";
     whine.frequency.value = base * 6.03;
     const whineGain = ctx.createGain();
-    whineGain.gain.value = 0.12;
+    whineGain.gain.value = voice.whine;
 
     const chatter = ctx.createGain();
     chatter.gain.value = 0.8;
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 31;
     const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 0.2;
+    lfoDepth.gain.value = voice.chatter;
     lfo.connect(lfoDepth).connect(chatter.gain);
 
     const hiss = ctx.createBufferSource();
@@ -288,7 +321,7 @@ export function createSynth(ctx: BaseAudioContext, out: AudioNode) {
     hissBand.frequency.value = 2400;
     hissBand.Q.value = 2.5;
     const hissGain = ctx.createGain();
-    hissGain.gain.value = 0.25;
+    hissGain.gain.value = voice.hiss;
 
     core.connect(body);
     whine.connect(whineGain).connect(body);
@@ -305,8 +338,17 @@ export function createSynth(ctx: BaseAudioContext, out: AudioNode) {
     };
   }
 
-  const gantryMotor = motor(92, 0.085);
-  const hoistMotor = motor(64, 0.1);
+  // every motor in the machine uses the same soft winch voice: a low hum with
+  // a little brush noise and no gear whine, so moving parts sound smooth, not buzzy
+  const SOFT: MotorVoice = {
+    wave: "triangle",
+    whine: 0,
+    cutoff: 520,
+    hiss: 0.08,
+    chatter: 0.06,
+  };
+  const gantryMotor = motor(92, 0.07, SOFT);
+  const hoistMotor = motor(92, 0.07, SOFT);
 
   return {
     play: (name: SoundName, delay = 0) => shots[name](ctx.currentTime + delay),
